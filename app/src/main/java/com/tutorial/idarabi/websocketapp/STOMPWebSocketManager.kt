@@ -9,6 +9,7 @@ import ua.naiksoftware.stomp.Stomp
 import ua.naiksoftware.stomp.StompClient
 import ua.naiksoftware.stomp.dto.StompHeader
 import kotlin.coroutines.resume
+import ua.naiksoftware.stomp.dto.LifecycleEvent.Type.*
 
 class StompWebSocketManager {
     private var stompClient: StompClient? = null
@@ -37,8 +38,7 @@ class StompWebSocketManager {
     }
 
     suspend fun connect(username: String? = null) {
-        if (_connectionState.value == ConnectionState.CONNECTING ||
-            _connectionState.value == ConnectionState.CONNECTED) {
+        if (_connectionState.value == ConnectionState.CONNECTING || _connectionState.value == ConnectionState.CONNECTED) {
             return
         }
 
@@ -51,26 +51,44 @@ class StompWebSocketManager {
             username?.let {
                 headers.add(StompHeader("username", it))
             }
-            withTimeout(CONNECTION_TIMEOUT) {
-                suspendCancellableCoroutine<Unit> { continuation ->
-                    // Create STOMP client
-                    stompClient = Stomp.over(Stomp.ConnectionProvider.OKHTTP, SERVER_URL)
-                    stompClient?.connect()
-                    isConnected = true
-                    _connectionState.value = ConnectionState.CONNECTED
-                    subscribeToMessageTopic()
-                    continuation.resume(Unit);
-                    continuation.invokeOnCancellation {
+            stompClient = Stomp.over(Stomp.ConnectionProvider.OKHTTP, SERVER_URL)
+            stompClient?.lifecycle()?.subscribe({ lifecycleEvent ->
+                when (lifecycleEvent.type) {
+                    OPENED -> {
+                        isConnected = true
+                        _connectionState.value = ConnectionState.CONNECTED
+                        subscribeToMessageTopic()
+                        addMessage(ChatMessage("System", "Connected to STOMP server", MessageType.SYSTEM))
+                    }
+                    ERROR -> {
+                        isConnected = false
                         _connectionState.value = ConnectionState.DISCONNECTED
-                        stompClient?.disconnect()
+                        _errorMessage.value = lifecycleEvent.exception?.message ?: "Unknown error"
+                        addMessage(ChatMessage("System", "Connection error: ${lifecycleEvent.exception?.message}", MessageType.ERROR))
+                    }
+                    CLOSED -> {
+                        isConnected = false
+                        _connectionState.value = ConnectionState.DISCONNECTED
+                        addMessage(ChatMessage("System", "Disconnected from STOMP server", MessageType.SYSTEM))
+                    }
+                    FAILED_SERVER_HEARTBEAT -> {
+                        isConnected = false
+                        _connectionState.value = ConnectionState.DISCONNECTED
+                        addMessage(ChatMessage("System", "Server heartbeat failed", MessageType.ERROR))
+                    }
+                    else -> {
+                        Log.w(TAG, "Unhandled lifecycle event: ${lifecycleEvent.type}")
                     }
                 }
-            }
+            }, { error ->
+                Log.e(TAG, "Lifecycle subscription error: ${error.message}", error)
+            })
+            stompClient?.connect()
         } catch (e: Exception) {
             Log.e(TAG, "Failed to connect: ${e.message}", e)
             _connectionState.value = ConnectionState.DISCONNECTED
             _errorMessage.value = e.message
-            throw e
+            addMessage(ChatMessage("System", "Failed to connect to server: ${e.message}", MessageType.ERROR))
         }
     }
 
