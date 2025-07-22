@@ -37,7 +37,7 @@ class StompWebSocketManager {
 //        private const val USER_ADD_DESTINATION = "/app/chat.addUser"
     }
 
-    suspend fun connect(username: String? = null) {
+    fun connect(username: String? = null) {
         if (_connectionState.value == ConnectionState.CONNECTING || _connectionState.value == ConnectionState.CONNECTED) {
             return
         }

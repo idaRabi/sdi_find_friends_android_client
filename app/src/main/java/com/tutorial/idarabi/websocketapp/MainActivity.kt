@@ -91,43 +91,6 @@ fun WebSocketScreen() {
             )
         }
 
-        // Connection Controls
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Button(
-                onClick = { viewModel.connect() },
-                enabled = connectionState == ConnectionState.DISCONNECTED,
-                modifier = Modifier.weight(1f)
-            ) {
-                Text("Connect")
-            }
-
-            Button(
-                onClick = { viewModel.disconnect() },
-                enabled = connectionState == ConnectionState.CONNECTED,
-                modifier = Modifier.weight(1f),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.error
-                )
-            ) {
-                Text("Disconnect")
-            }
-
-            Button(
-                onClick = { viewModel.clearMessages() },
-                modifier = Modifier.weight(1f),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.secondary
-                )
-            ) {
-                Text("Clear")
-            }
-        }
-
         // Messages List
         Card(
             modifier = Modifier

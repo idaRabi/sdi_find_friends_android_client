@@ -16,26 +16,42 @@ class WebSocketViewModel : ViewModel() {
     val messages: StateFlow<List<ChatMessage>> = webSocketManager.messages
     val errorMessage: StateFlow<String?> = webSocketManager.errorMessage
 
+    private var connectJob: kotlinx.coroutines.Job? = null
+
     init {
         Log.i("idarabi","WebSocketViewModel initialized")
+        // Start initial connection loop only once
+        startConnectLoop()
     }
     
-    fun connect() {
-        viewModelScope.launch(Dispatchers.IO) {
-            try {
-                webSocketManager.connect() // This is now a suspend function
-                withContext(Dispatchers.Main) {
-                    Log.i("idarabi","WebSocket connection initiated successfully")
-                }
-            } catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    Log.e("idarabi","Failed to connect to WebSocket", e)
-                    // Handle the error appropriately, maybe show a toast or update UI
+    private fun startConnectLoop() {
+        if (connectJob?.isActive == true) return // Only start if not already running
+        connectJob = viewModelScope.launch(Dispatchers.IO) {
+            while (true) {
+                if (connectionState.value == ConnectionState.DISCONNECTED) {
+                    try {
+                        webSocketManager.connect()
+                        withContext(Dispatchers.Main) {
+                            Log.i("idarabi","WebSocket connection initiated successfully")
+                        }
+                    } catch (e: Exception) {
+                        withContext(Dispatchers.Main) {
+                            Log.e("idarabi","Failed to connect to WebSocket, will retry in 5 seconds", e)
+                        }
+                        kotlinx.coroutines.delay(5000)
+                    }
+                } else {
+                    // Wait for state to change if already connected
+                    kotlinx.coroutines.delay(1000)
                 }
             }
         }
     }
-    
+
+    fun connect() {
+        startConnectLoop()
+    }
+
     fun disconnect() {
         Log.i("idarabi","Attempting to disconnect from WebSocket")
         viewModelScope.launch {
