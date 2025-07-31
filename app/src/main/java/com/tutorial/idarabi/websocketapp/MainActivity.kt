@@ -20,11 +20,23 @@ import androidx.compose.ui.unit.sp
 import com.tutorial.idarabi.websocketapp.ui.theme.WebsocketappTheme
 import androidx.compose.foundation.lazy.items
 import kotlinx.coroutines.launch
+import org.maplibre.android.camera.CameraPosition
+import org.maplibre.android.geometry.LatLng
+import org.maplibre.android.maps.MapView
+import androidx.compose.ui.viewinterop.AndroidView
+import org.maplibre.android.MapLibre
+import org.maplibre.android.WellKnownTileServer
+import org.maplibre.android.maps.Style
 
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        MapLibre.getInstance(
+            applicationContext,
+            "pk.1234567890", // You can use any dummy string if not using a tile server that requires an API key
+            WellKnownTileServer.MapTiler // or use CUSTOM if you're using localhost/local tiles
+        )
         enableEdgeToEdge()
         setContent {
             WebsocketappTheme {
@@ -32,11 +44,26 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    WebSocketScreen()
+                    MapLibreMap()
                 }
             }
         }
     }
+}
+
+@Composable
+fun MapLibreMap() {
+    AndroidView(
+        factory = { context ->
+            MapView(context).apply {
+                getMapAsync { mapboxMap ->
+                    mapboxMap.setDebugActive(true)
+                    mapboxMap.setStyle(Style.Builder().fromUri("http://10.0.2.2:8090/styles/basic-preview/style.json"))
+                }
+            }
+        },
+        modifier = Modifier.fillMaxSize()
+    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
